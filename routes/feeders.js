@@ -117,20 +117,26 @@ router.get(
 // });
 
 
+
 // router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res) => {
 //   const id = req.params.id;  // Get feeder_code from URL params
-//   const signedin_user = res.locals.id;  // Assuming you are storing user ID after authentication
+
 //   const selectQuery = `
 //     SELECT  
-//         s.con_size_a, s.con_size_b, s.con_size_c, s.con_size_n,
-//         s.geom, 
-//         s.section_id, 
-//         s.pole_number AS section_pole_number, 
-//         s.pole_phase AS section_pole_phase,
-//          (select e.equip_size, e.geom from equipment2 e where s.pole_number = e.pole_number and  e.equip_type = 2) as equip_size 
-//          from section2 s  WHERE s.feeder_code = $1`;
-
-
+//     s.con_size_a, s.con_size_b, s.con_size_c, s.con_size_n,
+//     s.section_id, 
+//     s.pole_number AS section_pole_number, 
+//     s.pole_phase AS section_pole_phase,
+//     e.equip_size,
+//     e.rs_con, e.rs_con1, e.rs_con3, e.sc_con, e.lc_con, 
+//       e.si_con, e.li_con, e.pb_con, e.ag_con, e.st_con,   
+//     ST_Length(ST_Transform(s.geom, 4326)::geography) AS section_length_meters,  -- Transform section geom
+//     ST_Length(ST_Transform(e.geom, 4326)::geography) AS equipment_length_meters -- Transform equipment geom
+// FROM section2 s
+// LEFT JOIN equipment2 e
+//   ON s.pole_number = e.pole_number AND e.equip_type = 2
+// WHERE s.feeder_code = $1
+//   `;
 
 //   try {
 //     const results = await new Promise((resolve, reject) => {
@@ -147,20 +153,12 @@ router.get(
 //       return res.status(404).json({ message: 'No equipment found for this feeder code.' });
 //     }
 
-//     // Transform the geometries into coordinates
-//     const transformedResults = results.rows.map(row => {
-//       console.log(row.section_geometry);
-//       // Parse the section geometry and equipment geometry
-//       const sectionGeometry = row.section_geometry ? JSON.parse(row.section_geometry) : null;
-//       const equipmentGeometry = row.equipment_geometry ? JSON.parse(row.equipment_geometry) : null;
-
-//       // Extract the coordinates from the geometries
-//       return {
-//         ...row,
-//         section_geometry: sectionGeometry ? sectionGeometry.coordinates : null,
-//         equipment_geometry: equipmentGeometry ? equipmentGeometry.coordinates : null
-//       };
-//     });
+//     // Transform results to include calculated geometry details
+//     const transformedResults = results.rows.map(row => ({
+//       ...row,
+//       section_length_meters: parseFloat(row.section_length_meters) || null,
+//       equipment_length_meters: parseFloat(row.equipment_length_meters) || null
+//     }));
 
 //     return res.status(200).json({ results: transformedResults });
 //   } catch (error) {
@@ -168,54 +166,6 @@ router.get(
 //     return res.status(500).json({ message: 'Internal server error' });
 //   }
 // });
-router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res) => {
-  const id = req.params.id;  // Get feeder_code from URL params
-
-  const selectQuery = `
-    SELECT  
-    s.con_size_a, s.con_size_b, s.con_size_c, s.con_size_n,
-    s.section_id, 
-    s.pole_number AS section_pole_number, 
-    s.pole_phase AS section_pole_phase,
-    e.equip_size,
-    e.rs_con, e.rs_con1, e.rs_con3, e.sc_con, e.lc_con, 
-      e.si_con, e.li_con, e.pb_con, e.ag_con, e.st_con,   
-    ST_Length(ST_Transform(s.geom, 4326)::geography) AS section_length_meters,  -- Transform section geom
-    ST_Length(ST_Transform(e.geom, 4326)::geography) AS equipment_length_meters -- Transform equipment geom
-FROM section2 s
-LEFT JOIN equipment2 e
-  ON s.pole_number = e.pole_number AND e.equip_type = 2
-WHERE s.feeder_code = $1
-  `;
-
-  try {
-    const results = await new Promise((resolve, reject) => {
-      connection.query(selectQuery, [id], (err, results) => {
-        if (err) {
-          return reject(err);
-        }
-        resolve(results);
-      });
-    });
-
-    // Check if results are empty
-    if (results.rows.length === 0) {
-      return res.status(404).json({ message: 'No equipment found for this feeder code.' });
-    }
-
-    // Transform results to include calculated geometry details
-    const transformedResults = results.rows.map(row => ({
-      ...row,
-      section_length_meters: parseFloat(row.section_length_meters) || null,
-      equipment_length_meters: parseFloat(row.equipment_length_meters) || null
-    }));
-
-    return res.status(200).json({ results: transformedResults });
-  } catch (error) {
-    console.error('Database query failed:', error);
-    return res.status(500).json({ message: 'Internal server error' });
-  }
-});
 
 
 // router.post(
@@ -320,6 +270,108 @@ WHERE s.feeder_code = $1
 //     }
 //   }
 // );
+
+router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res) => {
+  const id = req.params.id; // Get feeder_code from URL params
+
+  const selectQuery = `
+   SELECT  
+    s.con_size_a, 
+    s.con_size_b, 
+    s.con_size_c, 
+    s.con_size_n,
+    s.section_id, 
+    s.pole_number AS section_pole_number, 
+    s.pole_phase AS section_pole_phase,
+    SUM(CASE WHEN e.equip_type = 2 THEN e.equip_size::numeric ELSE 0 END) AS total_kva,
+    e.equip_size,
+    e.equip_type,
+    e.rs_con, 
+    e.rs_con1, 
+    e.rs_con3, 
+    e.sc_con, 
+    e.lc_con, 
+    e.si_con, 
+    e.li_con, 
+    e.pb_con, 
+    e.ag_con, 
+    e.st_con,   
+    ST_Length(ST_Transform(s.geom, 4326)::geography) AS section_length_meters,
+    ST_Length(ST_Transform(e.geom, 4326)::geography) AS equipment_length_meters,
+    ST_X(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_x,
+    ST_Y(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_y,
+    ST_X(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_x,
+    ST_Y(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_y,
+    ST_X(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_x,
+    ST_Y(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_y,
+    cp.name AS conductor_name ,cp.ratingname
+FROM section2 s
+LEFT JOIN equipment2 e
+  ON s.pole_number = e.pole_number 
+  AND e.equip_type = 2
+  AND e.pole_type = 1
+  AND ST_Distance(ST_StartPoint(s.geom), ST_StartPoint(e.geom)) < 0.0001
+LEFT JOIN conductor_phase cp  -- Join with conductor_phase table
+  ON s.con_size_a = cp.id  -- Condition to match con_size_a with conductor_phase.id
+WHERE s.feeder_code = $1
+GROUP BY 
+    s.con_size_a, 
+    s.con_size_b, 
+    s.con_size_c, 
+    s.con_size_n,
+    s.section_id, 
+    s.pole_number, 
+    s.pole_phase,
+    e.equip_size,
+    e.equip_type,
+    e.rs_con, 
+    e.rs_con1, 
+    e.rs_con3, 
+    e.sc_con, 
+    e.lc_con, 
+    e.si_con, 
+    e.li_con, 
+    e.pb_con, 
+    e.ag_con, 
+    e.st_con,   
+    s.geom, 
+    e.geom,
+    cp.name,
+    cp.ratingname  -- Include conductor_name in GROUP BY
+ORDER BY s.section_id ASC;
+  `;
+
+  try {
+    const results = await new Promise((resolve, reject) => {
+      connection.query(selectQuery, [id], (err, results) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve(results);
+      });
+    });
+
+    // Check if results are empty
+    if (results.rows.length === 0) {
+      return res.status(404).json({ message: 'No equipment found for this feeder code.' });
+    }
+
+    // Transform results to include calculated geometry details
+    const transformedResults = results.rows.map(row => ({
+      ...row,
+      section_length_meters: parseFloat(row.section_length_meters) || null,
+      equipment_length_meters: parseFloat(row.equipment_length_meters) || null,
+      start_coordinates: row.start_x && row.start_y ? { x: parseFloat(row.start_x), y: parseFloat(row.start_y) } : null,
+      end_coordinates: row.end_x && row.end_y ? { x: parseFloat(row.end_x), y: parseFloat(row.end_y) } : null
+    }));
+
+    return res.status(200).json({ results: transformedResults });
+  } catch (error) {
+    console.error('Database query failed:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 router.post(
   "/add_analysisparameter",
   auth.authenticateToken,
