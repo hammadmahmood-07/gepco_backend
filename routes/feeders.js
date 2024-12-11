@@ -36,7 +36,7 @@ router.get(
 
 router.get("/get_feeders/:id", auth.authenticateToken, async (req, res) => {
   const id = req.params.id;
- 
+
   const signedin_user = res.locals.id;
 
   //console.log(id);
@@ -46,7 +46,7 @@ router.get("/get_feeders/:id", auth.authenticateToken, async (req, res) => {
   connection.query(selectQuery, [id], (err, results) => {
     if (err) {
       return res.status(500).json({ message: err.message });
-    } else {    
+    } else {
       const result = results.rows;
       //console.log(result);
       return res.status(201).json({ result });
@@ -254,7 +254,7 @@ router.get(
 //             ]
 //           );
 //         }
-        
+
 
 //         // Push the ID of the inserted record to the array
 //         insertedIds.push(result.rows[0].analysis_parametr_id);
@@ -275,71 +275,73 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
   const id = req.params.id; // Get feeder_code from URL params
 
   const selectQuery = `
-   SELECT  
-    s.con_size_a, 
-    s.con_size_b, 
-    s.con_size_c, 
-    s.con_size_n,
-    s.section_id, 
-    s.pole_number AS section_pole_number, 
-    s.pole_phase AS section_pole_phase,
-    SUM(CASE WHEN e.equip_type = 2 THEN e.equip_size::numeric ELSE 0 END) AS total_kva,
-    e.equip_size,
-    e.equip_type,
-    e.rs_con, 
-    e.rs_con1, 
-    e.rs_con3, 
-    e.sc_con, 
-    e.lc_con, 
-    e.si_con, 
-    e.li_con, 
-    e.pb_con, 
-    e.ag_con, 
-    e.st_con,   
-    ST_Length(ST_Transform(s.geom, 4326)::geography) AS section_length_meters,
-    ST_Length(ST_Transform(e.geom, 4326)::geography) AS equipment_length_meters,
-    ST_X(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_x,
-    ST_Y(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_y,
-    ST_X(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_x,
-    ST_Y(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_y,
-    ST_X(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_x,
-    ST_Y(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_y,
-    cp.name AS conductor_name ,cp.ratingname
-FROM section2 s
-LEFT JOIN equipment2 e
-  ON s.pole_number = e.pole_number 
-  AND e.equip_type = 2
-  AND e.pole_type = 1
-  AND ST_Distance(ST_StartPoint(s.geom), ST_StartPoint(e.geom)) < 0.0001
-LEFT JOIN conductor_phase cp  -- Join with conductor_phase table
-  ON s.con_size_a = cp.id  -- Condition to match con_size_a with conductor_phase.id
-WHERE s.feeder_code = $1
-GROUP BY 
-    s.con_size_a, 
-    s.con_size_b, 
-    s.con_size_c, 
-    s.con_size_n,
-    s.section_id, 
-    s.pole_number, 
-    s.pole_phase,
-    e.equip_size,
-    e.equip_type,
-    e.rs_con, 
-    e.rs_con1, 
-    e.rs_con3, 
-    e.sc_con, 
-    e.lc_con, 
-    e.si_con, 
-    e.li_con, 
-    e.pb_con, 
-    e.ag_con, 
-    e.st_con,   
-    s.geom, 
-    e.geom,
-    cp.name,
-    cp.ratingname  -- Include conductor_name in GROUP BY
-ORDER BY s.section_id ASC;
-  `;
+                  SELECT  
+                    s.con_size_a, 
+                    s.con_size_b, 
+                    s.con_size_c, 
+                    s.con_size_n,
+                    s.section_id, 
+                    s.pole_number AS section_pole_number, 
+                    s.pole_phase AS section_pole_phase,	
+                    e.equip_size,
+                    e.equip_type,
+                    e.pole_type,
+                    e.rs_con, 
+                    e.rs_con1, 
+                    e.rs_con3, 
+                    e.sc_con, 
+                    e.lc_con, 
+                    e.si_con, 
+                    e.li_con, 
+                    e.pb_con, 
+                    e.ag_con, 
+                    e.st_con,   
+                    ST_Length(ST_Transform(s.geom, 4326)::geography) AS section_length_meters,
+                    ST_Length(ST_Transform(e.geom, 4326)::geography) AS equipment_length_meters,
+                    ST_X(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_x,
+                    ST_Y(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_y,
+                    ST_X(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_x,
+                    ST_Y(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_y,
+                    ST_X(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_x,
+                    ST_Y(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_y,
+                    ST_X(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_x,
+                    ST_Y(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_y,
+                    cp.name AS conductor_name ,cp.ratingname
+                FROM section2 s
+                LEFT JOIN equipment2 e
+                  ON s.pole_number = e.pole_number 
+                  AND e.equip_type = 2
+                  -- -- AND e.pole_type = 1
+                  -- AND ST_Distance(ST_StartPoint(s.geom), ST_StartPoint(e.geom)) < 0.0001
+                 LEFT JOIN conductor_phase cp  -- Join with conductor_phase table
+                   ON s.con_size_a = cp.id  -- Condition to match con_size_a with conductor_phase.id
+                WHERE s.feeder_code = $1
+                GROUP BY 
+                    s.con_size_a, 
+                    s.con_size_b, 
+                    s.con_size_c, 
+                    s.con_size_n,
+                    s.section_id, 
+                    s.pole_number, 
+                    s.pole_phase,
+                    e.equip_size,
+                    e.equip_type,
+                    e.rs_con, 
+                    e.rs_con1, 
+                    e.rs_con3, 
+                    e.sc_con, 
+                    e.lc_con, 
+                    e.si_con, 
+                    e.li_con, 
+                    e.pb_con, 
+                    e.ag_con, 
+                    e.st_con,   
+                    s.geom, 
+                    e.geom,
+                    e.pole_type,
+                    cp.name,
+                    cp.ratingname                   
+                  `;
 
   try {
     const results = await new Promise((resolve, reject) => {
@@ -372,6 +374,36 @@ ORDER BY s.section_id ASC;
   }
 });
 
+router.get("/get_equipment/:id", auth.authenticateToken, async (req, res) => {
+  const id = req.params.id; // Get feeder_code from URL params
+
+
+
+  const selectQuery = `SELECT equip_type, equip_size, ST_X(ST_Transform(ST_StartPoint(geom), 4326)) AS equip_start_x,
+                    ST_Y(ST_Transform(ST_StartPoint(geom), 4326)) AS equip_start_y FROM public.equipment2 where feeder_code = $1 AND equip_type = 8`;
+  try {
+    const results = await new Promise((resolve, reject) => {
+      connection.query(selectQuery, [id], (err, results) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve(results);
+      });
+    });
+
+    // Check if results are empty
+    if (results.rows.length === 0) {
+      return res.status(404).json({ message: 'No equipment found for this feeder code.' });
+    }
+    const result = results.rows;
+    return res.status(200).json({result});
+  }
+  catch (error) {
+    console.error('Database query failed:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 router.post(
   "/add_analysisparameter",
   auth.authenticateToken,
@@ -391,7 +423,7 @@ router.post(
       for (const record of records) {
         let result; // Declare result variable outside the blocks
 
-        if(record.selectedOption === 'manual'){
+        if (record.selectedOption === 'manual') {
           const formattedMonth = new Date(record.month);
           const formattedMonthString = formattedMonth.toISOString().slice(0, 7); // Format as 'YYYY-MM'
           // Append '-31' to make it a valid date (assumes the last day of the month)
@@ -413,7 +445,7 @@ router.post(
               record.feeder_name, // Replace with actual data if available
               parseInt(record.feeder_code, 10),
               record.maximumCurrent,
-              validDateFormat,     
+              validDateFormat,
               Math.round(record.powerFactor * 1000), // Convert float to integer
             ]
           );
@@ -494,11 +526,11 @@ router.post(
                   maximum_volts, maximum_section_pct_loading
                 )
                 VALUES ${data.map((_, i) =>
-                      `(${Array(32)
-                        .fill(0)
-                        .map((_, j) => `$${i * 32 + j + 1}`)
-                        .join(", ")})`
-                    ).join(", ")}
+        `(${Array(32)
+          .fill(0)
+          .map((_, j) => `$${i * 32 + j + 1}`)
+          .join(", ")})`
+      ).join(", ")}
                 RETURNING source_id;
               `;
 
@@ -578,11 +610,11 @@ router.post(
 //   }
 // );
 
-                    router.get(
-                      "/get_admin_boundary",
-                      auth.authenticateToken,
-                      async (req, res) => {
-                      const query = `
+router.get(
+  "/get_admin_boundary",
+  auth.authenticateToken,
+  async (req, res) => {
+    const query = `
                         SELECT 
                           f.feeder_code, 
                           f.feeder_name, 
@@ -604,58 +636,58 @@ router.post(
                           o3.name, o2.name, o1.name, f.feeder_name;
                       `;
 
-                      connection.query(query, (err, results) => {
-                        if (err) {
-                          return res.status(500).json({ error: 'Database query failed' });
-                        }
+    connection.query(query, (err, results) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database query failed' });
+      }
 
-                        // Transform the results into a nested structure
-                       
-                        // if (!Array.isArray(results)) {
-                        //   return res.status(500).json({ error: 'Unexpected result format' });
-                        // }
-                    
-                        const tree = [];
-                        const rows = results.rows || [];
-                        rows.forEach((row) => {
-                          // Find or create the Circle node
-                          let circleNode = tree.find((node) => node.label === row.circle);
-                          if (!circleNode) {
-                            circleNode = { label: row.circle, children: [] };
-                            tree.push(circleNode);
-                          }
+      // Transform the results into a nested structure
 
-                          // Find or create the Division node
-                          let divisionNode = circleNode.children.find(
-                            (node) => node.label === row.division
-                          );
-                          if (!divisionNode) {
-                            divisionNode = { label: row.division, children: [] };
-                            circleNode.children.push(divisionNode);
-                          }
+      // if (!Array.isArray(results)) {
+      //   return res.status(500).json({ error: 'Unexpected result format' });
+      // }
 
-                          // Find or create the Sub Division node
-                          let subDivisionNode = divisionNode.children.find(
-                            (node) => node.label === row.subDivision
-                          );
-                          if (!subDivisionNode) {
-                            subDivisionNode = { label: row.subDivision, children: [] };
-                            divisionNode.children.push(subDivisionNode);
-                          }
+      const tree = [];
+      const rows = results.rows || [];
+      rows.forEach((row) => {
+        // Find or create the Circle node
+        let circleNode = tree.find((node) => node.label === row.circle);
+        if (!circleNode) {
+          circleNode = { label: row.circle, children: [] };
+          tree.push(circleNode);
+        }
 
-                          // Add the Feeder as a leaf node
-                          subDivisionNode.children.push({
-                            label: row.feeder_name,
-                            data: {
-                              feeder_code: row.feeder_code,
-                              feeder_id: row.feeder_id,
-                            },
-                          });
-                        });
-                        
-//console.log(tree);
-                        res.json({ results: tree });
-                      });
-                    });
+        // Find or create the Division node
+        let divisionNode = circleNode.children.find(
+          (node) => node.label === row.division
+        );
+        if (!divisionNode) {
+          divisionNode = { label: row.division, children: [] };
+          circleNode.children.push(divisionNode);
+        }
+
+        // Find or create the Sub Division node
+        let subDivisionNode = divisionNode.children.find(
+          (node) => node.label === row.subDivision
+        );
+        if (!subDivisionNode) {
+          subDivisionNode = { label: row.subDivision, children: [] };
+          divisionNode.children.push(subDivisionNode);
+        }
+
+        // Add the Feeder as a leaf node
+        subDivisionNode.children.push({
+          label: row.feeder_name,
+          data: {
+            feeder_code: row.feeder_code,
+            feeder_id: row.feeder_id,
+          },
+        });
+      });
+
+      //console.log(tree);
+      res.json({ results: tree });
+    });
+  });
 
 module.exports = router;
