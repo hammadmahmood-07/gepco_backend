@@ -306,7 +306,7 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
                     ST_Y(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_y,
                     ST_X(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_x,
                     ST_Y(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_y,
-                    cp.name AS conductor_name ,cp.ratingname
+                    cp.name AS conductor_name ,cp.ratingname, cp.resistance, cp.reactance
                 FROM section2 s
                 LEFT JOIN equipment2 e
                   ON s.pole_number = e.pole_number 
@@ -340,7 +340,7 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
                     e.geom,
                     e.pole_type,
                     cp.name,
-                    cp.ratingname                   
+                    cp.ratingname,cp.resistance, cp.reactance                   
                   `;
 
   try {
