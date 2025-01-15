@@ -306,7 +306,7 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
                     ST_Y(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_y,
                     ST_X(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_x,
                     ST_Y(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_y,
-                    cp.name AS conductor_name ,cp.ratingname, cp.resistance, cp.reactance
+                    cp.name AS conductor_name ,cp.ratingname, cp.resistance, cp.reactance,cp.amp_rating
                 FROM section2 s
                 LEFT JOIN equipment2 e
                   ON s.pole_number = e.pole_number 
@@ -315,7 +315,7 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
                   -- AND ST_Distance(ST_StartPoint(s.geom), ST_StartPoint(e.geom)) < 0.0001
                  LEFT JOIN conductor_phase cp  -- Join with conductor_phase table
                    ON s.con_size_a = cp.id  -- Condition to match con_size_a with conductor_phase.id
-                WHERE s.feeder_code = $1
+                WHERE s.feeder_code = $1 and s.pole_phase = 'R-Y-B'
                 GROUP BY 
                     s.con_size_a, 
                     s.con_size_b, 
@@ -340,7 +340,7 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
                     e.geom,
                     e.pole_type,
                     cp.name,
-                    cp.ratingname,cp.resistance, cp.reactance                   
+                    cp.ratingname,cp.resistance, cp.reactance,cp.amp_rating                   
                   `;
 
   try {
