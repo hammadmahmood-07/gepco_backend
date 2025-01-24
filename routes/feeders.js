@@ -15,7 +15,7 @@ router.get(
   auth.authenticateToken,
   async (req, res) => {
     const signedin_user = res.locals.id;
-    const selectQuery = "SELECT * FROM feeder where feedermapped = 1";
+    const selectQuery = "SELECT * FROM feeder where feedermapped = 1 and feeder_code = '108803'";
     connection.query(selectQuery, (err, results) => {
       if (err) {
         //   logger.error(
@@ -275,72 +275,85 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
   const id = req.params.id; // Get feeder_code from URL params
 
   const selectQuery = `
-                  SELECT  
-                    s.con_size_a, 
-                    s.con_size_b, 
-                    s.con_size_c, 
-                    s.con_size_n,
-                    s.section_id, 
-                    s.pole_number AS section_pole_number, 
-                    s.pole_phase AS section_pole_phase,	
-                    e.equip_size,
-                    e.equip_type,
-                    e.pole_type,
-                    e.rs_con, 
-                    e.rs_con1, 
-                    e.rs_con3, 
-                    e.sc_con, 
-                    e.lc_con, 
-                    e.si_con, 
-                    e.li_con, 
-                    e.pb_con, 
-                    e.ag_con, 
-                    e.st_con,   
-                    ST_Length(ST_Transform(s.geom, 4326)::geography) AS section_length_meters,
-                    ST_Length(ST_Transform(e.geom, 4326)::geography) AS equipment_length_meters,
-                    ST_X(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_x,
-                    ST_Y(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_y,
-                    ST_X(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_x,
-                    ST_Y(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_y,
-                    ST_X(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_x,
-                    ST_Y(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_y,
-                    ST_X(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_x,
-                    ST_Y(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_y,
-                    cp.name AS conductor_name ,cp.ratingname, cp.resistance, cp.reactance,cp.amp_rating
-                FROM section2 s
-                LEFT JOIN equipment2 e
-                  ON s.pole_number = e.pole_number 
-                  AND e.equip_type = 2
-                  -- -- AND e.pole_type = 1
-                  -- AND ST_Distance(ST_StartPoint(s.geom), ST_StartPoint(e.geom)) < 0.0001
-                 LEFT JOIN conductor_phase cp  -- Join with conductor_phase table
-                   ON s.con_size_a = cp.id  -- Condition to match con_size_a with conductor_phase.id
-                WHERE s.feeder_code = $1 and s.pole_phase = 'R-Y-B'
-                GROUP BY 
-                    s.con_size_a, 
-                    s.con_size_b, 
-                    s.con_size_c, 
-                    s.con_size_n,
-                    s.section_id, 
-                    s.pole_number, 
-                    s.pole_phase,
-                    e.equip_size,
-                    e.equip_type,
-                    e.rs_con, 
-                    e.rs_con1, 
-                    e.rs_con3, 
-                    e.sc_con, 
-                    e.lc_con, 
-                    e.si_con, 
-                    e.li_con, 
-                    e.pb_con, 
-                    e.ag_con, 
-                    e.st_con,   
-                    s.geom, 
-                    e.geom,
-                    e.pole_type,
-                    cp.name,
-                    cp.ratingname,cp.resistance, cp.reactance,cp.amp_rating                   
+                       SELECT  
+                                  s.con_size_a, 
+                                  s.con_size_b, 
+                                  s.con_size_c, 
+                                  s.con_size_n,
+                                  s.section_id, 
+                                  s.pole_number AS section_pole_number, 
+                                  s.pole_phase AS section_pole_phase,	
+                                  e.equip_size,
+                                  e.equip_type,
+                                  e.pole_type,
+                                  e.rs_con, 
+                                  e.rs_con1, 
+                                  e.rs_con3, 
+                                  e.sc_con, 
+                                  e.lc_con, 
+                                  e.si_con, 
+                                  e.li_con, 
+                                  e.pb_con, 
+                                  e.ag_con, 
+                                  e.st_con,   
+                                  ST_Length(ST_Transform(s.geom, 4326)::geography) AS section_length_meters,
+                                  ST_Length(ST_Transform(e.geom, 4326)::geography) AS equipment_length_meters,
+                                  ST_X(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_x,
+                                  ST_Y(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_y,
+                                  ST_X(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_x,
+                                  ST_Y(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_y,
+                                  ST_X(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_x,
+                                  ST_Y(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_y,
+                                  ST_X(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_x,
+                                  ST_Y(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_y,
+                                  cp.name AS conductor_name,
+                                  cp.ratingname, 
+                                  cp.resistance, 
+                                  cp.reactance,
+                                  cp.amp_rating,
+                                  td.iron_loss,
+                                  td.copper_loss,
+                                  (td.iron_loss + td.copper_loss) * COUNT(e.equip_size) OVER (PARTITION BY e.equip_size) AS total_loss
+                              FROM section2 s
+                              LEFT JOIN equipment2 e
+                                ON s.pole_number = e.pole_number 
+                                AND e.equip_type = 8
+                              LEFT JOIN conductor_phase cp  
+                                ON s.con_size_a = cp.id  
+                              LEFT JOIN transformer_loss td  
+                              on e.equip_size::NUMERIC = td.transformer_size
+                              WHERE s.feeder_code = $1
+                                AND s.pole_phase = 'R-Y-B'
+                              GROUP BY 
+                                  s.con_size_a, 
+                                  s.con_size_b, 
+                                  s.con_size_c, 
+                                  s.con_size_n,
+                                  s.section_id, 
+                                  s.pole_number, 
+                                  s.pole_phase,
+                                  e.equip_size,
+                                  e.equip_type,
+                                  e.rs_con, 
+                                  e.rs_con1, 
+                                  e.rs_con3, 
+                                  e.sc_con, 
+                                  e.lc_con, 
+                                  e.si_con, 
+                                  e.li_con, 
+                                  e.pb_con, 
+                                  e.ag_con, 
+                                  e.st_con,   
+                                  s.geom, 
+                                  e.geom,
+                                  e.pole_type,
+                                  cp.name,
+                                  cp.ratingname,
+                                  cp.resistance, 
+                                  cp.reactance,
+                                  cp.amp_rating,
+                                  td.iron_loss,
+                                  td.copper_loss;              
                   `;
 
   try {
@@ -380,7 +393,7 @@ router.get("/get_equipment/:id", auth.authenticateToken, async (req, res) => {
 
 
   const selectQuery = `SELECT equip_type, equip_size, ST_X(ST_Transform(ST_StartPoint(geom), 4326)) AS equip_start_x,
-                    ST_Y(ST_Transform(ST_StartPoint(geom), 4326)) AS equip_start_y FROM public.equipment2 where feeder_code = $1 AND equip_type = 8`;
+                    ST_Y(ST_Transform(ST_StartPoint(geom), 4326)) AS equip_start_y FROM equipment2 where feeder_code = $1 AND equip_type = 8`;
   try {
     const results = await new Promise((resolve, reject) => {
       connection.query(selectQuery, [id], (err, results) => {
@@ -396,7 +409,7 @@ router.get("/get_equipment/:id", auth.authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'No equipment found for this feeder code.' });
     }
     const result = results.rows;
-    return res.status(200).json({result});
+    return res.status(200).json({ result });
   }
   catch (error) {
     console.error('Database query failed:', error);
@@ -689,5 +702,28 @@ router.get(
       res.json({ results: tree });
     });
   });
+
+router.get(
+  "/get_transformerLoss",
+  auth.authenticateToken,
+  async (req, res) => {
+    const signedin_user = res.locals.id;
+    const selectQuery = "SELECT * FROM transformer_loss";
+    connection.query(selectQuery, (err, results) => {
+      if (err) {
+        //   logger.error(
+        //     `- ${signedin_user} - ${new Date()} - feeder fetch history  error:`,
+        //     err
+        //   );
+        return res.status(500).json({ message: err.sqlMessage });
+      } else {
+        //   logger.info(
+        //     `feeder fetch Successfully - ${signedin_user} - ${new Date()}`
+        //   );
+        return res.status(201).json({ results });
+      }
+    });
+  }
+);
 
 module.exports = router;
