@@ -15,7 +15,7 @@ router.get(
   auth.authenticateToken,
   async (req, res) => {
     const signedin_user = res.locals.id;
-    const selectQuery = "SELECT * FROM feeder where feedermapped = 1 and feeder_code = '108803'";
+    const selectQuery = "SELECT * FROM feeder where feedermapped = 1";
     connection.query(selectQuery, (err, results) => {
       if (err) {
         //   logger.error(
