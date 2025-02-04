@@ -15,7 +15,7 @@ router.get(
   auth.authenticateToken,
   async (req, res) => {
     const signedin_user = res.locals.id;
-    const selectQuery = "SELECT * FROM feeder where feedermapped = 1";
+    const selectQuery = "SELECT * FROM feeder where feedermapped = 1 and feeder_code = '108803'";
     connection.query(selectQuery, (err, results) => {
       if (err) {
         //   logger.error(
@@ -80,196 +80,10 @@ router.get(
 );
 
 
-// router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res) => {
-//   const id = req.params.id;
-
-//   const selectQuery = `
-//     SELECT 
-//       s.object_id, s.con_size_a, s.con_size_b, s.con_size_c, s.con_size_n, 
-//       s.wo_id AS section_wo_id, ST_AsGeoJSON(ST_Transform(s.geom, 4326)) AS section_geometry, 
-//       s.section_id, s.substation AS section_substation, s.feeder_code AS section_feeder_code, 
-//       s.feeder, s.line_voltage AS section_line_voltage, s.pole_number AS section_pole_number, 
-//       s.pole_phase AS section_pole_phase, 
-//       e.pole_type, e.transformer_mounting, e.equip_type, e.equip_use, 
-//       e.feeders_on_pole, e.rs_con, e.rs_con1, e.rs_con3, e.sc_con, e.lc_con, 
-//       e.si_con, e.li_con, e.pb_con, e.ag_con, e.st_con, e.transformer_make, 
-//       e.wo_id AS equipment_wo_id, ST_AsGeoJSON(ST_Transform(e.geom, 4326)) AS equipment_geometry, 
-//       e.objectid AS equipment_objectid, e.equip_unit, e.sequence, e.end_type, 
-//       e.substation AS equipment_substation, e.feeder_code AS equipment_feeder_code, 
-//       e.s_e, e.gps_no, e.line_voltage AS equipment_line_voltage, 
-//       e.pole_number AS equipment_pole_number, e.pole_phase AS equipment_pole_phase, 
-//       e.pole_use, e.pole_height, e.equip_number, e.equip_size, e.equip_phase, 
-//       e.equip_status, e.consumer_name, e.transformer_location, e.angle, e.tap_pole, 
-//       e.section_id AS equipment_section_id, e.remarks 
-//     FROM feeder f 
-//     JOIN section2 s ON (f.feeder_code = s.feeder_code) 
-//     JOIN equipment2 e ON (f.feeder_code = e.feeder_code) 
-//     WHERE f.feeder_code = $1;
-//   `;
-
-//   connection.query(selectQuery, [id], (err, results) => {
-//     if (err) {
-//       return res.status(500).json({ message: err.message });
-//     } else {
-//       return res.status(200).json({ results: results.rows });
-//     }
-//   });
-// });
 
 
 
-// router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res) => {
-//   const id = req.params.id;  // Get feeder_code from URL params
 
-//   const selectQuery = `
-//     SELECT  
-//     s.con_size_a, s.con_size_b, s.con_size_c, s.con_size_n,
-//     s.section_id, 
-//     s.pole_number AS section_pole_number, 
-//     s.pole_phase AS section_pole_phase,
-//     e.equip_size,
-//     e.rs_con, e.rs_con1, e.rs_con3, e.sc_con, e.lc_con, 
-//       e.si_con, e.li_con, e.pb_con, e.ag_con, e.st_con,   
-//     ST_Length(ST_Transform(s.geom, 4326)::geography) AS section_length_meters,  -- Transform section geom
-//     ST_Length(ST_Transform(e.geom, 4326)::geography) AS equipment_length_meters -- Transform equipment geom
-// FROM section2 s
-// LEFT JOIN equipment2 e
-//   ON s.pole_number = e.pole_number AND e.equip_type = 2
-// WHERE s.feeder_code = $1
-//   `;
-
-//   try {
-//     const results = await new Promise((resolve, reject) => {
-//       connection.query(selectQuery, [id], (err, results) => {
-//         if (err) {
-//           return reject(err);
-//         }
-//         resolve(results);
-//       });
-//     });
-
-//     // Check if results are empty
-//     if (results.rows.length === 0) {
-//       return res.status(404).json({ message: 'No equipment found for this feeder code.' });
-//     }
-
-//     // Transform results to include calculated geometry details
-//     const transformedResults = results.rows.map(row => ({
-//       ...row,
-//       section_length_meters: parseFloat(row.section_length_meters) || null,
-//       equipment_length_meters: parseFloat(row.equipment_length_meters) || null
-//     }));
-
-//     return res.status(200).json({ results: transformedResults });
-//   } catch (error) {
-//     console.error('Database query failed:', error);
-//     return res.status(500).json({ message: 'Internal server error' });
-//   }
-// });
-
-
-// router.post(
-//   "/add_analysisparameter",
-//   auth.authenticateToken,
-//   async (req, res) => {
-//     try {
-//       const data = req.body; // Array or single object
-//       console.log(data)
-//       const timestamp = new Date(); // Current timestamp
-
-//       // Convert input to an array if it's a single object
-//       const records = Array.isArray(data) ? data : [data];
-
-//       // Array to hold inserted IDs
-//       const insertedIds = [];
-
-//       // Insert each record and return its ID
-//       for (const record of records) {
-//         if(record.selectedOption === 'manual'){
-//           const formattedMonth = new Date(record.month);
-//       const formattedMonthString = formattedMonth.toISOString().slice(0, 7); // Format as 'YYYY-MM'
-//       // Append '-31' to make it a valid date (assumes the last day of the month)
-//       const validDateFormat = `${formattedMonthString}-31`;
-
-//           const result = await connection.query(
-//             `
-//             INSERT INTO analysis_parametr (
-//               grid_station_name,
-//               feeder_name,
-//               feeder_code,
-//               load,
-//               date,
-//               power_factor
-//             ) VALUES (
-//               $1, $2, $3, $4, $5, $6
-//             )
-//             RETURNING analysis_parametr_id;
-//             `,
-//             [
-//               record.gstationid, // Replace with actual data if available
-//               record.feeder_name, // Replace with actual data if available
-//               parseInt(record.feeder_code, 10),
-//               record.maximumCurrent,
-//               validDateFormat,     
-//               Math.round(record.powerFactor * 1000), // Convert float to integer
-//             ]
-//           );
-//         }
-//         else{
-//           const result = await connection.query(
-//             `
-//             INSERT INTO analysis_parametr (
-//               grid_station_name,
-//               feeder_name,
-//               feeder_code,
-//               ct_ratio,
-//               cable_size,
-//               cable_length,
-//               load,
-//               date,
-//               time,
-//               kwh_units_consumption,
-//               kvarh_units_consumption,
-//               power_factor,
-//               operation_circle
-//             ) VALUES (
-//               $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
-//             )
-//             RETURNING analysis_parametr_id;
-//             `,
-//             [
-//               "Grid Station", // Replace with actual data if available
-//               record.feeder_name, // Replace with actual data if available
-//               parseInt(record.feeder_code, 10),
-//               parseInt(record.ct_ratio.split("/")[0], 10), // Convert "400/5" to 400
-//               parseInt(record.cable_size.replace(/[^0-9]/g, ""), 10), // Extract 500 from "500MCM"
-//               parseInt(record.cable_length.replace(/[^0-9]/g, ""), 10), // Extract 35 from "35 M"
-//               record.load,
-//               timestamp.toISOString().split("T")[0], // Current date
-//               timestamp.toISOString().split("T")[1].slice(0, 8), // Current time
-//               parseInt(record.kwh_units_consumption, 10),
-//               record.kvarh_units_consumption,
-//               Math.round(record.powerFactor * 1000), // Convert float to integer
-//               record.operation_circle,
-//             ]
-//           );
-//         }
-
-
-//         // Push the ID of the inserted record to the array
-//         insertedIds.push(result.rows[0].analysis_parametr_id);
-//       }
-
-//       res.status(201).json({
-//         message: "Records inserted successfully!",
-//         insertedIds, // Return all inserted IDs
-//       });
-//     } catch (error) {
-//       console.error(error);
-//       res.status(500).json({ error: "Failed to insert data" });
-//     }
-//   }
-// );
 
 router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res) => {
   const id = req.params.id; // Get feeder_code from URL params
@@ -317,7 +131,7 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
                               FROM section2 s
                               LEFT JOIN equipment2 e
                                 ON s.pole_number = e.pole_number 
-                                AND e.equip_type = 8
+                                AND e.equip_type = 3
                               LEFT JOIN conductor_phase cp  
                                 ON s.con_size_a = cp.id  
                               LEFT JOIN transformer_loss td  
