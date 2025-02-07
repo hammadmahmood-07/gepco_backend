@@ -89,85 +89,85 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
   const id = req.params.id; // Get feeder_code from URL params
 
   const selectQuery = `
-                       SELECT  
-                                  s.con_size_a, 
-                                  s.con_size_b, 
-                                  s.con_size_c, 
-                                  s.con_size_n,
-                                  s.section_id, 
-                                  s.pole_number AS section_pole_number, 
-                                  s.pole_phase AS section_pole_phase,	
-                                  e.equip_size,
-                                  e.equip_type,
-                                  e.pole_type,
-                                  e.rs_con, 
-                                  e.rs_con1, 
-                                  e.rs_con3, 
-                                  e.sc_con, 
-                                  e.lc_con, 
-                                  e.si_con, 
-                                  e.li_con, 
-                                  e.pb_con, 
-                                  e.ag_con, 
-                                  e.st_con,   
-                                  ST_Length(ST_Transform(s.geom, 4326)::geography) AS section_length_meters,
-                                  ST_Length(ST_Transform(e.geom, 4326)::geography) AS equipment_length_meters,
-                                  ST_X(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_x,
-                                  ST_Y(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_y,
-                                  ST_X(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_x,
-                                  ST_Y(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_y,
-                                  ST_X(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_x,
-                                  ST_Y(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_y,
-                                  ST_X(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_x,
-                                  ST_Y(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_y,
-                                  cp.name AS conductor_name,
-                                  cp.ratingname, 
-                                  cp.resistance, 
-                                  cp.reactance,
-                                  cp.amp_rating,
-                                  td.iron_loss,
-                                  td.copper_loss,
-                                  (td.iron_loss + td.copper_loss) * COUNT(e.equip_size) OVER (PARTITION BY e.equip_size) AS total_loss
-                              FROM section2 s
-                              LEFT JOIN equipment2 e
-                                ON s.pole_number = e.pole_number 
-                                AND e.equip_type = 3
-                              LEFT JOIN conductor_phase cp  
-                                ON s.con_size_a = cp.id  
-                              LEFT JOIN transformer_loss td  
-                              on e.equip_size::NUMERIC = td.transformer_size
-                              WHERE s.feeder_code = $1
-                                AND s.pole_phase = 'R-Y-B'
-                              GROUP BY 
-                                  s.con_size_a, 
-                                  s.con_size_b, 
-                                  s.con_size_c, 
-                                  s.con_size_n,
-                                  s.section_id, 
-                                  s.pole_number, 
-                                  s.pole_phase,
-                                  e.equip_size,
-                                  e.equip_type,
-                                  e.rs_con, 
-                                  e.rs_con1, 
-                                  e.rs_con3, 
-                                  e.sc_con, 
-                                  e.lc_con, 
-                                  e.si_con, 
-                                  e.li_con, 
-                                  e.pb_con, 
-                                  e.ag_con, 
-                                  e.st_con,   
-                                  s.geom, 
-                                  e.geom,
-                                  e.pole_type,
-                                  cp.name,
-                                  cp.ratingname,
-                                  cp.resistance, 
-                                  cp.reactance,
-                                  cp.amp_rating,
-                                  td.iron_loss,
-                                  td.copper_loss;              
+                       SELECT DISTINCT ON (s.pole_number)  
+    s.con_size_a, 
+    s.con_size_b, 
+    s.con_size_c, 
+    s.con_size_n,
+    s.section_id, 
+    s.pole_number AS section_pole_number, 
+    s.pole_phase AS section_pole_phase,    
+    e.equip_size,
+    e.equip_type,
+    e.pole_type,
+    e.rs_con, 
+    e.rs_con1, 
+    e.rs_con3, 
+    e.sc_con, 
+    e.lc_con, 
+    e.si_con, 
+    e.li_con, 
+    e.pb_con, 
+    e.ag_con, 
+    e.st_con,   
+    ST_Length(ST_Transform(s.geom, 4326)::geography) AS section_length_meters,
+    ST_Length(ST_Transform(e.geom, 4326)::geography) AS equipment_length_meters,
+    ST_X(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_x,
+    ST_Y(ST_Transform(ST_StartPoint(s.geom), 4326)) AS start_y,
+    ST_X(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_x,
+    ST_Y(ST_Transform(ST_EndPoint(s.geom), 4326)) AS end_y,
+    ST_X(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_x,
+    ST_Y(ST_Transform(ST_StartPoint(e.geom), 4326)) AS equip_start_y,
+    ST_X(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_x,
+    ST_Y(ST_Transform(ST_EndPoint(e.geom), 4326)) AS equip_end_y,
+    cp.name AS conductor_name,
+    cp.ratingname, 
+    cp.resistance, 
+    cp.reactance,
+    cp.amp_rating,
+    td.iron_loss,
+    td.copper_loss,
+    SUM(td.iron_loss + td.copper_loss) AS total_loss
+FROM section2 s
+LEFT JOIN equipment2 e
+    ON s.pole_number = e.pole_number 
+    AND e.equip_type = 3
+LEFT JOIN conductor_phase cp  
+    ON s.con_size_a = cp.id  
+LEFT JOIN transformer_loss td  
+    ON e.equip_size::NUMERIC = td.transformer_size
+WHERE s.feeder_code = $1  
+    AND s.pole_phase = 'R-Y-B'
+GROUP BY 
+    s.con_size_a, 
+    s.con_size_b, 
+    s.con_size_c, 
+    s.con_size_n,
+    s.section_id, 
+    s.pole_number, 
+    s.pole_phase,
+    e.equip_size,
+    e.equip_type,
+    e.rs_con, 
+    e.rs_con1, 
+    e.rs_con3, 
+    e.sc_con, 
+    e.lc_con, 
+    e.si_con, 
+    e.li_con, 
+    e.pb_con, 
+    e.ag_con, 
+    e.st_con,   
+    s.geom, 
+    e.geom,
+    e.pole_type,
+    cp.name,
+    cp.ratingname,
+    cp.resistance, 
+    cp.reactance,
+    cp.amp_rating,
+    td.iron_loss,
+    td.copper_loss;              
                   `;
 
   try {
@@ -237,7 +237,7 @@ router.post(
   async (req, res) => {
     try {
       const data = req.body; // Array or single object
-      console.log(data)
+     // console.log(data)
       const timestamp = new Date(); // Current timestamp
 
       // Convert input to an array if it's a single object
@@ -409,33 +409,64 @@ router.post(
   }
 );
 
-// router.get(
-//   "/get_admin_boundary",
-//   auth.authenticateToken,
-//   async (req, res) => {
-//     const signedin_user = res.locals.id;
-//               const selectQuery = `Select f.feeder_code, f.feeder_name,ogf.feeder_id, o1.name as "Sub Division", o2.name as "Division", o3.name as "Circle" 
-//           from organization_feeders ogf
-//           join organization o1 on (o1.org_id = ogf.org_id)
-//           join organization o2 on (o1.parent_org_id = o2.org_id)
-//           join organization o3 on (o2.parent_org_id = o3.org_id) 
-//           join feeder f on (f.id = ogf.org_feeder_id)`;
-//     connection.query(selectQuery, (err, results) => {
-//       if (err) {
-//         //   logger.error(
-//         //     `- ${signedin_user} - ${new Date()} - feeder fetch history  error:`,
-//         //     err
-//         //   );
-//         return res.status(500).json({ message: err.message });
-//       } else {
-//         //   logger.info(
-//         //     `feeder fetch Successfully - ${signedin_user} - ${new Date()}`
-//         //   );
-//         return res.status(201).json({ results });
-//       }
-//     });
-//   }
-// );
+
+router.post('/add_elrdata', 
+  auth.authenticateToken, async (req, res) => {
+  try {
+    const data = req.body;
+    console.log(data);
+    for (const feeder of data) {
+      const result = await connection.query(
+        `INSERT INTO elr (
+          feeder_type, demand_kva, kw_loss_pct, demand_pctpf, demand_amps, 
+          kw_loss_line, kw_loss_trans, conn_kva, maximum_pct_loading, load_factor,
+          pct_max_volt_drop, demand_kw, max_load_amp, annual_energy_loss_kwh, 
+          loss_factor, line, min_volt_out_pct, transformer, total_energy_loss,
+          annual_energy_loss_pct, annual_energy_sent_kwh, conductor_km, mcm_500,
+          ant, dog, gopher, rabbit, total_inc_ant, total_conductor
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 
+          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)`,
+        [
+          feeder.feeder_type,
+          feeder.demandKVA,
+          10.25,
+          feeder.powerFactor,
+          feeder.maximumCurrent,
+          306.0,
+          58.0,
+          feeder.CON_kVA,
+          79.0,
+          feeder.type_value,
+          13.0,
+          feeder.demand_kW,
+          null,
+          739764.5,
+          0.232,
+          621889.92,
+          87,
+          117874.56,
+          739764.5,
+          5.96,
+          12415723.2,
+          26.17,
+          0.8,
+          0.13,
+          5.28,
+          2.61,
+          17.35,
+          26.17,
+          26.04,
+        ]
+      );
+      
+    }
+
+    res.status(200).json({ message: 'Data inserted successfully'});
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database insertion error' });
+  }
+});
 
 router.get(
   "/get_admin_boundary",
