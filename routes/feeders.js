@@ -87,6 +87,12 @@ router.get(
 
 router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res) => {
   const id = req.params.id; // Get feeder_code from URL params
+  const ht_ltvalue = req.query.ht_ltvalue; // Get the additional parameter
+  if(ht_ltvalue == 'ht'){
+     ht_lt = 3;
+  }else{
+    ht_lt = 2;
+  }
 
   const selectQuery = `
                        SELECT DISTINCT ON (s.pole_number)  
@@ -131,7 +137,7 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
 FROM section2 s
 LEFT JOIN equipment2 e
     ON s.pole_number = e.pole_number 
-    AND e.equip_type = 3
+    AND e.equip_type = $2
 LEFT JOIN conductor_phase cp  
     ON s.con_size_a = cp.id  
 LEFT JOIN transformer_loss td  
@@ -172,7 +178,7 @@ GROUP BY
 
   try {
     const results = await new Promise((resolve, reject) => {
-      connection.query(selectQuery, [id], (err, results) => {
+      connection.query(selectQuery, [id,ht_lt], (err, results) => {
         if (err) {
           return reject(err);
         }
@@ -207,7 +213,7 @@ router.get("/get_equipment/:id", auth.authenticateToken, async (req, res) => {
 
 
   const selectQuery = `SELECT equip_type, equip_size, ST_X(ST_Transform(ST_StartPoint(geom), 4326)) AS equip_start_x,
-                    ST_Y(ST_Transform(ST_StartPoint(geom), 4326)) AS equip_start_y FROM equipment2 where feeder_code = $1 AND equip_type = 8`;
+                    ST_Y(ST_Transform(ST_StartPoint(geom), 4326)) AS equip_start_y FROM equipment2 where feeder_code = $1 AND equip_type = 2`;
   try {
     const results = await new Promise((resolve, reject) => {
       connection.query(selectQuery, [id], (err, results) => {
@@ -263,17 +269,19 @@ router.post(
               feeder_code,
               load,
               date,
-              power_factor
+              power_factor,
+              analysis_parameter_type
             ) VALUES (
-              $1, $2, $3, $4, $5, $6
+              $1, $2, $3, $4, $5, $6 , $7
             ) RETURNING analysis_parametr_id;`,
             [
-              record.gstationid, // Replace with actual data if available
+              "Grid Station", // Replace with actual data if available
               record.feeder_name, // Replace with actual data if available
               parseInt(record.feeder_code, 10),
               record.maximumCurrent,
               validDateFormat,
               Math.round(record.powerFactor * 1000), // Convert float to integer
+              record.checklt_ht
             ]
           );
         }
@@ -292,9 +300,10 @@ router.post(
               kwh_units_consumption,
               kvarh_units_consumption,
               power_factor,
-              operation_circle
+              operation_circle,
+              analysis_parameter_type
             ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
             ) RETURNING analysis_parametr_id;`,
             [
               "Grid Station", // Replace with actual data if available
@@ -310,6 +319,7 @@ router.post(
               record.kvarh_units_consumption,
               Math.round(record.powerFactor * 1000), // Convert float to integer
               record.operation_circle,
+              record.checklt_ht
             ]
           );
         }
