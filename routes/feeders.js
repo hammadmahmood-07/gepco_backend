@@ -15,7 +15,7 @@ router.get(
   auth.authenticateToken,
   async (req, res) => {
     const signedin_user = res.locals.id;
-    const selectQuery = "SELECT * FROM feeder where feedermapped = 1 and feeder_code = '108803'";
+    const selectQuery = "SELECT * FROM feeder where feedermapped = 1";
     connection.query(selectQuery, (err, results) => {
       if (err) {
         //   logger.error(
@@ -88,9 +88,9 @@ router.get(
 router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res) => {
   const id = req.params.id; // Get feeder_code from URL params
   const ht_ltvalue = req.query.ht_ltvalue; // Get the additional parameter
-  if(ht_ltvalue == 'ht'){
-     ht_lt = 3;
-  }else{
+  if (ht_ltvalue == 'ht') {
+    ht_lt = 3;
+  } else {
     ht_lt = 2;
   }
 
@@ -137,7 +137,9 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
 FROM section2 s
 LEFT JOIN equipment2 e
     ON s.pole_number = e.pole_number 
-    AND e.equip_type = $2
+    AND e.equip_type IN ($2,8)
+    AND e.feeder_code = s.feeder_code  -- Add this line
+    AND e.pole_phase = s.pole_phase   -- Add this line
 LEFT JOIN conductor_phase cp  
     ON s.con_size_a = cp.id  
 LEFT JOIN transformer_loss td  
@@ -178,7 +180,7 @@ GROUP BY
 
   try {
     const results = await new Promise((resolve, reject) => {
-      connection.query(selectQuery, [id,ht_lt], (err, results) => {
+      connection.query(selectQuery, [id, ht_lt], (err, results) => {
         if (err) {
           return reject(err);
         }
@@ -190,6 +192,14 @@ GROUP BY
     if (results.rows.length === 0) {
       return res.status(404).json({ message: 'No equipment found for this feeder code.' });
     }
+
+
+    // Calculate sum of equip_size
+    const sumEquipSize = results.rows.reduce((sum, row) => {
+      return sum + (parseFloat(row.equip_size) || 0);
+    }, 0);
+
+    console.log("Total equip_size sum:", sumEquipSize);
 
     // Transform results to include calculated geometry details
     const transformedResults = results.rows.map(row => ({
@@ -243,7 +253,7 @@ router.post(
   async (req, res) => {
     try {
       const data = req.body; // Array or single object
-     // console.log(data)
+      // console.log(data)
       const timestamp = new Date(); // Current timestamp
 
       // Convert input to an array if it's a single object
@@ -258,9 +268,12 @@ router.post(
 
         if (record.selectedOption === 'manual') {
           const formattedMonth = new Date(record.month);
-          const formattedMonthString = formattedMonth.toISOString().slice(0, 7); // Format as 'YYYY-MM'
-          // Append '-31' to make it a valid date (assumes the last day of the month)
-          const validDateFormat = `${formattedMonthString}-31`;
+          const year = formattedMonth.getFullYear();
+          const month = formattedMonth.getMonth() + 1; // getMonth() returns 0-11, so add 1
+
+          // Get the last day of the month dynamically
+          const lastDay = new Date(year, month, 0).getDate();
+          const validDateFormat = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
 
           result = await connection.query(
             `INSERT INTO analysis_parametr (
@@ -420,63 +433,65 @@ router.post(
 );
 
 
-router.post('/add_elrdata', 
+router.post('/add_elrdata',
   auth.authenticateToken, async (req, res) => {
-  try {
-    const data = req.body;
-    console.log(data);
-    for (const feeder of data) {
-      const result = await connection.query(
-        `INSERT INTO elr (
+    try {
+      const data = req.body;
+      console.log(data);
+      for (const feeder of data) {
+        const result = await connection.query(
+          `INSERT INTO elr (
           feeder_type, demand_kva, kw_loss_pct, demand_pctpf, demand_amps, 
           kw_loss_line, kw_loss_trans, conn_kva, maximum_pct_loading, load_factor,
           pct_max_volt_drop, demand_kw, max_load_amp, annual_energy_loss_kwh, 
           loss_factor, line, min_volt_out_pct, transformer, total_energy_loss,
           annual_energy_loss_pct, annual_energy_sent_kwh, conductor_km, mcm_500,
-          ant, dog, gopher, rabbit, total_inc_ant, total_conductor
+          ant, dog, gopher, rabbit, total_inc_ant, total_conductor, feeder_code, feeder_name, created_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 
-          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)`,
-        [
-          feeder.feeder_type,
-          feeder.demandKVA,
-          10.25,
-          feeder.powerFactor,
-          feeder.maximumCurrent,
-          306.0,
-          58.0,
-          feeder.CON_kVA,
-          79.0,
-          feeder.type_value,
-          13.0,
-          feeder.demand_kW,
-          null,
-          739764.5,
-          0.232,
-          621889.92,
-          87,
-          117874.56,
-          739764.5,
-          5.96,
-          12415723.2,
-          26.17,
-          0.8,
-          0.13,
-          5.28,
-          2.61,
-          17.35,
-          26.17,
-          26.04,
-        ]
-      );
-      
-    }
+          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, NOW())`,
+          [
+            feeder.feeder_type,
+            feeder.demandKVA,
+            feeder.kw_loss_pct,
+            feeder.powerFactor,
+            feeder.maximumCurrent,
+            306.0,
+            58.0,
+            feeder.CON_kVA,
+            79.0,
+            feeder.type_value,
+            13.0,
+            feeder.demand_kW,
+            null,
+            739764.5,
+            0.232,
+            621889.92,
+            87,
+            117874.56,
+            739764.5,
+            5.96,
+            12415723.2,
+            26.17,
+            0.8,
+            0.13,
+            5.28,
+            2.61,
+            17.35,
+            26.17,
+            26.04,
+            feeder.feeder_code,
+            feeder.feeder_name
+          ]
+        );
 
-    res.status(200).json({ message: 'Data inserted successfully'});
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database insertion error' });
-  }
-});
+      }
+
+      res.status(200).json({ message: 'Data inserted successfully' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Database insertion error' });
+    }
+  });
 
 router.get(
   "/get_admin_boundary",
@@ -580,5 +595,93 @@ router.get(
     });
   }
 );
+
+
+router.get("/get_sections/:id", auth.authenticateToken, async (req, res) => {
+  const id = req.params.id;
+  console.log(id);
+
+  const signedin_user = res.locals.id;
+
+  //console.log(id);
+  const selectQuery =
+    "SELECT section_id FROM section2 WHERE feeder_code = $1";
+
+  connection.query(selectQuery, [id], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: err.message });
+    } else {
+      const result = results.rows;
+      //console.log(result);
+      return res.status(201).json({ result });
+    }
+  });
+});
+
+
+// router.get("/analysis_parametr/:id", auth.authenticateToken, async (req, res) => {
+//   const id = req.params.id;
+
+//   //console.log(id);
+//   const selectQuery =
+//     "SELECT kw_loss_pct  FROM (SELECT kw_loss_pct, ROW_NUMBER() OVER ( PARTITION BY DATE_TRUNC('month', created_at)ORDER BY created_at  DESC) AS rn  FROM elr  WHERE feeder_code = $1) AS ranked WHERE rn = 1;";
+
+//   connection.query(selectQuery, [id], (err, results) => {
+//     if (err) {
+//       return res.status(500).json({ message: err.message });
+//     } else {
+//       const result = results.rows;
+//       //console.log(result);
+//       return res.status(201).json({ result });
+//     }
+//   });
+// });
+
+router.get("/analysis_parametr_all", auth.authenticateToken, async (req, res) => {
+  const selectQuery = `
+    SELECT 
+  SUM(kw_loss_pct) AS kw_loss_pct,
+  DATE_TRUNC('month', created_at) AS created_at
+FROM elr
+GROUP BY DATE_TRUNC('month', created_at)
+ORDER BY created_at ASC;
+  `;
+
+  connection.query(selectQuery, [], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: err.message });
+    } else {
+      return res.status(200).json({ result: results.rows });
+    }
+  });
+});
+router.get("/analysis_parametr/:id", auth.authenticateToken, async (req, res) => {
+  const id = req.params.id;
+
+  const selectQuery = `
+    SELECT kw_loss_pct, created_at
+    FROM (
+      SELECT kw_loss_pct, created_at,
+             ROW_NUMBER() OVER (
+               PARTITION BY DATE_TRUNC('month', created_at)
+               ORDER BY created_at DESC
+             ) AS rn
+      FROM elr
+      WHERE feeder_code = $1
+    ) ranked
+    WHERE rn = 1;
+  `;
+
+  connection.query(selectQuery, [id], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: err.message });
+    } else {
+      return res.status(200).json({ result: results.rows });
+    }
+  });
+});
+
+
+
 
 module.exports = router;
