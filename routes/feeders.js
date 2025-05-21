@@ -364,60 +364,47 @@ router.post(
         return res.status(400).json({ message: "Invalid data format or empty array." });
       }
 
-      const query = `
+                    const query = `
                 INSERT INTO analysis_feeder_summary (
                   fs, demand_kw, demand_kva, demand_pct_pf, demand_amps,
-                  amps_n, conn_customer, conn_kva, kw_loss_pct, kw_loss_line,
-                  kw_loss_tran, kw_loss_reg, demand_kva_r, demand_kva_y, demand_kva_b,
-                  power_factor_r, power_factor_y, power_factor_b, amps_r, amps_y, amps_b,
-                  customer_count_r, customer_count_y, customer_count_b,
+                  conn_customer, conn_kva, kw_loss_pct, kw_loss_line, kw_loss_tran, kw_loss_reg,
                   pct_loading_r, pct_loading_y, pct_loading_b,
-                  minimum_section_id, minimum_volts, maximum_section_id,
-                  maximum_volts, maximum_section_pct_loading
+                  minimum_section_id, minimum_volts, maximum_section_id, maximum_volts,
+                  maximum_section_pct_loading, analysis_parametr_id, feeder_code
                 )
                 VALUES ${data.map((_, i) =>
-        `(${Array(32)
-          .fill(0)
-          .map((_, j) => `$${i * 32 + j + 1}`)
-          .join(", ")})`
-      ).join(", ")}
+                  `(${Array(21)
+                    .fill(0)
+                    .map((_, j) => `$${i * 21 + j + 1}`)
+                    .join(', ')})`
+                ).join(', ')}
                 RETURNING source_id;
               `;
 
-      const values = data.flatMap(record => [
-        record.feeder_code,
-        record.demand_kW,
-        record.demand_kva,
-        record.demand_pct_pf,
-        record.demand_amps,
-        record.amps_n,
-        record.CON_customer,
-        record.CON_kVA,
-        record.kw_loss_pct,
-        record.kw_loss_line,
-        record.kw_loss_tran,
-        record.kw_loss_reg,
-        record.demand_kva_r,
-        record.demand_kva_y,
-        record.demand_kva_b,
-        record.power_factor_r,
-        record.power_factor_y,
-        record.power_factor_b,
-        record.amps_r,
-        record.amps_y,
-        record.amps_b,
-        record.customer_count_r,
-        record.customer_count_y,
-        record.customer_count_b,
-        record.pct_loading_r,
-        record.pct_loading_y,
-        record.pct_loading_b,
-        record.minimum_section_id,
-        record.minimum_volts,
-        record.maximum_section_id,
-        record.maximum_volts,
-        record.maximum_section_pct_loading,
-      ]);
+                const values = data.flatMap(record => [
+            record.feeder_name,         // fs
+            record.demand_kW,           // demand_kw
+            record.demandKVA,           // demand_kva
+            record.powerFactor,         // demand_pct_pf
+            record.maximumCurrent,      // demand_amps
+            record.CON_customer,        // conn_customer
+            record.CON_kVA,             // conn_kva
+            record.total_kw_loss,       // kw_loss_pct
+            record.total_power_loss,    // kw_loss_line
+            record.kW_loss,             // kw_loss_tran
+            '0',                  // kw_loss_reg
+            record.demandkva_ryb,       // pct_loading_r
+            record.demandkva_ryb,       // pct_loading_y
+            record.demandkva_ryb,       // pct_loading_b
+            '0',                  // minimum_section_id
+            record.powerFactor,         // minimum_volts
+            '0',                  // maximum_section_id
+            record.maximumCurrent,      // maximum_volts
+            record.maximumCurrent,      // maximum_section_pct_loading
+            parseInt(record.parameter_inserted_id[0]), // analysis_parametr_id
+            record.feeder_code          // feeder_code (again)
+          ]);
+
 
       const result = await connection.query(query, values);
 
@@ -446,9 +433,9 @@ router.post('/add_elrdata',
           pct_max_volt_drop, demand_kw, max_load_amp, annual_energy_loss_kwh, 
           loss_factor, line, min_volt_out_pct, transformer, total_energy_loss,
           annual_energy_loss_pct, annual_energy_sent_kwh, conductor_km, mcm_500,
-          ant, dog, gopher, rabbit, total_inc_ant, total_conductor, feeder_code, feeder_name, created_at
+          ant, dog, gopher, rabbit, total_inc_ant, total_conductor, feeder_code, feeder_name, created_at,month
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 
-          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, NOW())`,
+          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, NOW(),$32)`,
           [
             feeder.feeder_type,
             feeder.demandKVA,
@@ -480,7 +467,8 @@ router.post('/add_elrdata',
             26.17,
             26.04,
             feeder.feeder_code,
-            feeder.feeder_name
+            feeder.feeder_name,
+            feeder.month
           ]
         );
 
@@ -641,9 +629,9 @@ router.get("/analysis_parametr_all", auth.authenticateToken, async (req, res) =>
   const selectQuery = `
     SELECT 
   SUM(kw_loss_pct) AS kw_loss_pct,
-  DATE_TRUNC('month', created_at) AS created_at
+  DATE_TRUNC('month', month) AS created_at
 FROM elr
-GROUP BY DATE_TRUNC('month', created_at)
+GROUP BY DATE_TRUNC('month', month)
 ORDER BY created_at ASC;
   `;
 
@@ -661,9 +649,9 @@ router.get("/analysis_parametr/:id", auth.authenticateToken, async (req, res) =>
   const selectQuery = `
     SELECT kw_loss_pct, created_at
     FROM (
-      SELECT kw_loss_pct, created_at,
+      SELECT kw_loss_pct, month,
              ROW_NUMBER() OVER (
-               PARTITION BY DATE_TRUNC('month', created_at)
+               PARTITION BY DATE_TRUNC('month', month)
                ORDER BY created_at DESC
              ) AS rn
       FROM elr
@@ -679,6 +667,53 @@ router.get("/analysis_parametr/:id", auth.authenticateToken, async (req, res) =>
       return res.status(200).json({ result: results.rows });
     }
   });
+});
+
+// routes/feederSummary.js or your relevant route file
+
+router.put('/update-last-loss', async (req, res) => {
+  const { kw_loss_pct, kw_loss_line, source_id } = req.body;
+
+  // Validation
+  if (
+    kw_loss_pct === undefined ||
+    kw_loss_line === undefined ||
+    !source_id
+  ) {
+    return res.status(400).json({ message: 'Missing required fields.' });
+  }
+
+ // const connection = await pool.connect();
+
+  try {
+    const result = await connection.query(
+      `UPDATE analysis_feeder_summary
+       SET kw_loss_pct = $1,
+           kw_loss_line = $2
+       WHERE source_id = $3
+       RETURNING source_id`,
+      [kw_loss_pct, kw_loss_line, source_id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'No record found with the given source_id.' });
+    }
+
+    res.status(200).json({
+      message: 'Updated successfully.',
+      updatedId: result.rows[0].source_id,
+    });
+
+  } catch (error) {
+    console.error('Update error:', error);
+    res.status(500).json({
+      message: 'Failed to update record.',
+      error: error.message,
+    });
+  } 
+  // finally {
+  //   connection.release();
+  // }
 });
 
 
