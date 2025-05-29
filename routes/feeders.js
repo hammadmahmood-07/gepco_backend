@@ -357,6 +357,7 @@ router.post(
   "/add_feedersummary",
   auth.authenticateToken,
   async (req, res) => {
+    console.log(req.body);
     try {
       const data = req.body; // Assuming `req.body` is an array of records
 
@@ -647,7 +648,7 @@ router.get("/analysis_parametr/:id", auth.authenticateToken, async (req, res) =>
   const id = req.params.id;
 
   const selectQuery = `
-    SELECT kw_loss_pct, created_at
+    SELECT kw_loss_pct, month
     FROM (
       SELECT kw_loss_pct, month,
              ROW_NUMBER() OVER (
