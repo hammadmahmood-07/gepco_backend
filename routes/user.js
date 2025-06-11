@@ -290,47 +290,102 @@ router.use(express.json());
 //     });
 //   });
 
+
+//imp code
+// router.post('/login', async (req, res) => {
+//   console.log(req.body);
+//   const { username, password } = req.body;
+
+//   try {
+//       // Query to find the user by username
+//       const query = 'SELECT u.id, u.first_name, u.last_name, u.username, u.password FROM users u WHERE u.username = $1';
+//       const result = await connection.query(query, [username]);
+
+//       // Check if the user exists
+//       if (result.rows.length === 0) {
+//           return res.status(400).json({ error: 'Invalid username or password' });
+//       }
+
+//       const user = result.rows[0];
+
+//       // Check if the password is correct (since it's stored in plain text)
+//       if (password !== user.password) {
+//           return res.status(400).json({ error: 'Invalid username or password' });
+//       }
+
+//       // Create and sign a JWT token
+//       const token = jwt.sign({ id: user.id, username: user.username }, process.env.ACCESS_TOKEN, { expiresIn: '8h' });
+
+//       // Send the token and user info as the response
+//       res.json({
+//           token,
+//           user: {
+//               id: user.id,
+//               first_name: user.first_name,
+//               last_name: user.last_name,
+//               username: user.username,
+//           },
+//       });
+//   } catch (error) {
+//       console.error(error);
+//       res.status(500).json({ error: 'Server error' });
+//   }
+// });
+
+
 router.post('/login', async (req, res) => {
-  console.log(req.body);
-  const { username, password } = req.body;
+    
+    const { username, password } = req.body;
 
-  try {
-      // Query to find the user by username
-      const query = 'SELECT u.id, u.first_name, u.last_name, u.username, u.password FROM users u WHERE u.username = $1';
-      const result = await connection.query(query, [username]);
+    try {
+        // Query to find the user by username
+        const query = `
+            SELECT u.id, u.first_name, u.last_name, u.username, u.password, u.user_type_id
+            FROM users u 
+            WHERE u.username = $1
+        `;
+        const result = await connection.query(query, [username]);
 
-      // Check if the user exists
-      if (result.rows.length === 0) {
-          return res.status(400).json({ error: 'Invalid username or password' });
-      }
+        // Check if the user exists
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid username or password' });
+        }
 
-      const user = result.rows[0];
+        const user = result.rows[0];
 
-      // Check if the password is correct (since it's stored in plain text)
-      if (password !== user.password) {
-          return res.status(400).json({ error: 'Invalid username or password' });
-      }
+        // Check if user_type_id is 8
+                if (parseInt(user.user_type_id) !== 8) {
+            console.log(user.user_type_id);
+            return res.status(403).json({ error: 'You are not authorized to login.' });
+        }
 
-      // Create and sign a JWT token
-      const token = jwt.sign({ id: user.id, username: user.username }, process.env.ACCESS_TOKEN, { expiresIn: '8h' });
+        // Check if the password is correct (plain text comparison)
+        if (password !== user.password) {
+            return res.status(400).json({ error: 'Invalid username or password' });
+        }
 
-      // Send the token and user info as the response
-      res.json({
-          token,
-          user: {
-              id: user.id,
-              first_name: user.first_name,
-              last_name: user.last_name,
-              username: user.username,
-          },
-      });
-  } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Server error' });
-  }
+        // Create and sign a JWT token
+        const token = jwt.sign(
+            { id: user.id, username: user.username },
+            process.env.ACCESS_TOKEN,
+            { expiresIn: '8h' }
+        );
+
+        // Send the token and user info as the response
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                username: user.username,
+            },
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
-
-
 
 
 
