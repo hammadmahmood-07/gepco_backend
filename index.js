@@ -3,6 +3,7 @@ const connection = require("./config/connection");
 const userRoute = require("./routes/user");
 const widgets = require("./routes/widgets");
 const feeders = require("./routes/feeders");
+const areaplanning = require("./routes/areaplanning");
 var cors = require("cors");
 
 
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use(`${api}/user`, userRoute);
 app.use(`${api}/widgets`, widgets);
 app.use(`${api}/feeders`, feeders);
+app.use(`${api}/areaplanning`, areaplanning);
 
 
 const port = process.env.PORT || 3000;

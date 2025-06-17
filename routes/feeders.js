@@ -283,9 +283,10 @@ router.post(
               load,
               date,
               power_factor,
-              analysis_parameter_type
+              analysis_parameter_type,
+              type
             ) VALUES (
-              $1, $2, $3, $4, $5, $6 , $7
+              $1, $2, $3, $4, $5, $6 , $7,'HT'
             ) RETURNING analysis_parametr_id;`,
             [
               "Grid Station", // Replace with actual data if available
@@ -371,15 +372,15 @@ router.post(
                   conn_customer, conn_kva, kw_loss_pct, kw_loss_line, kw_loss_tran, kw_loss_reg,
                   pct_loading_r, pct_loading_y, pct_loading_b,
                   minimum_section_id, minimum_volts, maximum_section_id, maximum_volts,
-                  maximum_section_pct_loading, analysis_parametr_id, feeder_code
+                  maximum_section_pct_loading, analysis_parametr_id, feeder_code, type
                 )
                 VALUES ${data.map((_, i) =>
-                  `(${Array(21)
-                    .fill(0)
-                    .map((_, j) => `$${i * 21 + j + 1}`)
-                    .join(', ')})`
-                ).join(', ')}
-                RETURNING source_id;
+                `(${Array(22) // <-- change from 21 to 22
+                .fill(0)
+                .map((_, j) => `$${i * 22 + j + 1}`) // <-- use 22 here too
+                .join(', ')})`
+            ).join(', ')}
+            RETURNING source_id;
               `;
 
                 const values = data.flatMap(record => [
@@ -403,7 +404,8 @@ router.post(
             record.maximumCurrent,      // maximum_volts
             record.maximumCurrent,      // maximum_section_pct_loading
             parseInt(record.parameter_inserted_id[0]), // analysis_parametr_id
-            record.feeder_code          // feeder_code (again)
+            record.feeder_code ,         // feeder_code (again)
+            'Area Planning'
           ]);
 
 
@@ -434,9 +436,9 @@ router.post('/add_elrdata',
           pct_max_volt_drop, demand_kw, max_load_amp, annual_energy_loss_kwh, 
           loss_factor, line, min_volt_out_pct, transformer, total_energy_loss,
           annual_energy_loss_pct, annual_energy_sent_kwh, conductor_km, mcm_500,
-          ant, dog, gopher, rabbit, total_inc_ant, total_conductor, feeder_code, feeder_name, created_at,month
+          ant, dog, gopher, rabbit, total_inc_ant, total_conductor, feeder_code, feeder_name, created_at,month,type
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 
-          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, NOW(),$32)`,
+          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, NOW(),$32,'Area Planning')`,
           [
             feeder.feeder_type,
             feeder.demandKVA,
