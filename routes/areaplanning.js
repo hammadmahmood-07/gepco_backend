@@ -199,7 +199,7 @@ GROUP BY
       return sum + (parseFloat(row.equip_size) || 0);
     }, 0);
 
-    console.log("Total equip_size sum:", sumEquipSize);
+    //console.log("Total equip_size sum:", sumEquipSize);
 
     // Transform results to include calculated geometry details
     const transformedResults = results.rows.map(row => ({
@@ -359,7 +359,6 @@ router.post(
   "/add_feedersummary",
   auth.authenticateToken,
   async (req, res) => {
-    console.log(req.body);
     try {
       const data = req.body; // Assuming `req.body` is an array of records
 
@@ -428,7 +427,6 @@ router.post('/add_elrdata',
   auth.authenticateToken, async (req, res) => {
     try {
       const data = req.body;
-      console.log(data);
       for (const feeder of data) {
         const result = await connection.query(
           `INSERT INTO elr (
@@ -591,7 +589,6 @@ router.get(
 
 router.get("/get_sections/:id", auth.authenticateToken, async (req, res) => {
   const id = req.params.id;
-  console.log(id);
 
   const signedin_user = res.locals.id;
 
