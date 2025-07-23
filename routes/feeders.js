@@ -223,7 +223,7 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
   const id = req.params.id; // This could be feeder_code or equip_number
   const ht_ltvalue = req.query.ht_ltvalue; // 'ht' or 'lt'
   const feederType = req.query.feederType; // 'HT' or 'LT'
-  console.log(feederType);
+  //console.log(feederType);
   let ht_lt;
   if (ht_ltvalue === 'ht') {
     ht_lt = 3;
@@ -421,7 +421,7 @@ router.post(
   "/add_analysisparameter",
   auth.authenticateToken,
   async (req, res) => {
-    console.log(req.body);
+    //console.log(req.body);
     try {
       const data = req.body; // Array or single object
       // console.log(data)
