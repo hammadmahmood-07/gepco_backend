@@ -6,7 +6,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 var auth = require("../services/authentication");
-
+const ExcelJS = require('exceljs');
 router.use(express.json());
 
 
@@ -911,6 +911,116 @@ router.get('/lt-feeders/:feederCode', async (req, res) => {
     res.status(500).json({ success: false, message: 'Database error occurred.' });
   }
 });
+
+router.get('/export_feeder_input/:feeder_id', auth.authenticateToken, async (req, res) => {
+  const feeder_id = req.params.feeder_id;
+
+  try {
+
+    const sectionsResult = await connection.query(`SELECT * FROM section2 WHERE feeder_code = $1`, [feeder_id]);
+    const equipmentsResult = await connection.query(`SELECT * FROM equipment2 WHERE feeder_code = $1`, [feeder_id]);
+    const feedersResult = await connection.query(`SELECT * FROM feeder WHERE feeder_code = $1`, [feeder_id]);
+
+   
+
+    const sections = sectionsResult.rows;
+    const equipments = equipmentsResult.rows;
+    const feeders = feedersResult.rows;
+
+    if (feeders.length === 0) {
+      return res.status(404).json({ message: "Feeder not found" });
+    }
+
+    const buses = createBusTable(sections);
+    const lines = createLineTable(sections);
+    const loads = createLoadTable(equipments);
+    const ext_grid = createExternalGrid(feeders[0]);
+
+    const workbook = new ExcelJS.Workbook();
+
+    const addSheet = (name, data) => {
+      const sheet = workbook.addWorksheet(name);
+      if (data.length > 0) {
+        sheet.columns = Object.keys(data[0]).map(key => ({ header: key, key }));
+        data.forEach(row => sheet.addRow(row));
+      }
+    };
+
+    addSheet('Buses', buses);
+    addSheet('Lines', lines);
+    addSheet('Loads', loads);
+    addSheet('ExternalGrid', ext_grid);
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=feeder_input_${feeder_id}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error generating Excel file", error: err.message });
+  }
+});
+
+function createBusTable(sections) {
+  const busSet = new Set();
+
+  sections.forEach(sec => {
+    if (sec.from) busSet.add(sec.from);
+    if (sec.to) busSet.add(sec.to);
+  });
+
+  return Array.from(busSet).map(name => ({
+    name,
+    vn_kv: 0.4,
+    type: 'b',
+    zone: 1,
+    in_service: true
+  }));
+}
+
+
+
+function createLineTable(sections) {
+  return sections.map((sec, index) => ({
+    name: sec.name || `line_${index + 1}`,
+    from_bus: sec.from,
+    to_bus: sec.to,
+    length_km: parseFloat(sec.length) || 0,
+    r_ohm_per_km: parseFloat(sec.r) || 0,
+    x_ohm_per_km: parseFloat(sec.x) || 0,
+    c_nf_per_km: 0,
+    max_i_ka: parseFloat(sec.amp_rating || 0) / 1000 || 0.05,
+    type: sec.type || 'overhead',
+    in_service: true
+  }));
+}
+
+
+
+function createLoadTable(equipments) {
+  return equipments.map((eq, index) => ({
+    name: eq.name || `load_${index + 1}`,
+    bus: eq.node || 'unknown',
+    p_kw: parseFloat(eq.kw) || 0,
+    q_kvar: parseFloat(eq.kvar) || 0,
+    in_service: true
+  }));
+}
+
+
+function createExternalGrid(feeder) {
+  return [
+    {
+      name: 'Grid',
+      bus: feeder.feeder_code || 'unknown',
+      vm_pu: 1,
+      va_degree: 0,
+      in_service: true
+    }
+  ];
+}
+
 
 
 
