@@ -263,7 +263,7 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
           AND e.pole_phase = s.pole_phase
         LEFT JOIN conductor_phase cp ON s.con_size_a = cp.id
         LEFT JOIN transformer_loss td ON e.equip_size::NUMERIC = td.transformer_size
-        WHERE s.feeder_code = $1 AND s.pole_phase = 'R-Y-B'
+        WHERE s.feeder_code = $1 
         GROUP BY s.con_size_a, s.con_size_b, s.con_size_c, s.con_size_n,
           s.section_id, s.pole_number, s.pole_phase,
           e.equip_size, e.equip_type, e.rs_con, e.rs_con1, e.rs_con3,
@@ -300,7 +300,7 @@ router.get("/get_section_equipment/:id", auth.authenticateToken, async (req, res
         LEFT JOIN conductor_phase cp ON s.con_size_a = cp.id
         LEFT JOIN transformer_loss td ON e.equip_size::NUMERIC = td.transformer_size
         WHERE (s.feeder_code = $1 OR e.equip_number = $1)
-          AND s.pole_phase = 'R-Y-B'
+          
         GROUP BY s.con_size_a, s.con_size_b, s.con_size_c, s.con_size_n,
           s.section_id, s.pole_number, s.pole_phase,
           e.equip_size, e.equip_type, e.rs_con, e.rs_con1, e.rs_con3,
